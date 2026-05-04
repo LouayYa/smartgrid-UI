@@ -1,7 +1,7 @@
 import requests
 from config import METER_SERVICE_URL, COLLECTION_SERVICE_URL, ANALYSIS_SERVICE_URL
 
-TIMEOUT = 20
+TIMEOUT = 60 # 60 seconds timeout for all requests
 
 def list_meters():
     r = requests.get(f"{METER_SERVICE_URL}/meters", timeout=TIMEOUT)
@@ -28,6 +28,11 @@ def update_meter(meter_id: int, name: str):
 
 def delete_meter(meter_id: int):
     r = requests.delete(f"{METER_SERVICE_URL}/meters/{meter_id}", timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()
+
+def delete_readings_by_meter(meter_id: int):
+    r = requests.delete(f"{COLLECTION_SERVICE_URL}/readings/by-meter/{meter_id}", timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()
 

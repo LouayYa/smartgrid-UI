@@ -33,6 +33,36 @@
         {% endif %}
         {% endwith %}
 
+        {% if sim_job %}
+        <div class="message sim-banner" id="sim-banner">
+            <span id="sim-status-text">⏳ Simulation in progress — this may take a minute…</span>
+        </div>
+        <script>
+            (function () {
+                var jobId = {{ sim_job | tojson }};
+                var banner = document.getElementById('sim-banner');
+                var statusText = document.getElementById('sim-status-text');
+                function poll() {
+                    fetch('/simulate/status/' + jobId)
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            if (data.status === 'running') {
+                                setTimeout(poll, 3000);
+                            } else if (data.status === 'done') {
+                                banner.className = 'message success sim-banner';
+                                statusText.textContent = '✓ ' + data.message;
+                            } else {
+                                banner.className = 'message error sim-banner';
+                                statusText.textContent = '✗ ' + data.message;
+                            }
+                        })
+                        .catch(function () { setTimeout(poll, 5000); });
+                }
+                poll();
+            })();
+        </script>
+        {% endif %}
+
         <section class="grid two-columns">
             <div class="card">
                 <div class="card-header">
@@ -146,7 +176,7 @@
             <div class="section-subtitle">
                 Showing {{ readings|length }} reading(s)
             </div>
-            <div class="table-wrap">
+            <div class="table-wrap readings-scroll">
                 <table>
                     <thead>
                         <tr>
