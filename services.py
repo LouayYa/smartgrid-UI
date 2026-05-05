@@ -1,7 +1,7 @@
 import requests
 from config import METER_SERVICE_URL, COLLECTION_SERVICE_URL, ANALYSIS_SERVICE_URL
 
-TIMEOUT = 60 # 60 seconds timeout for all requests
+TIMEOUT = 300 # 300 seconds timeout for all requests
 
 def list_meters():
     r = requests.get(f"{METER_SERVICE_URL}/meters", timeout=TIMEOUT)
