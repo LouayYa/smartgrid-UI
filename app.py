@@ -209,4 +209,4 @@ def simulate_status(job_id):
     return jsonify(job)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8004, debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8004)), debug=True)
