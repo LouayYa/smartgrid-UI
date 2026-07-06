@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 import threading
 from datetime import datetime
@@ -18,6 +19,19 @@ from services import (
 
 # In-memory job store: job_id -> {"status": "running"|"done"|"error", "message": str}
 _jobs = {}
+_JOB_TTL_SECONDS = 3600
+
+
+def _prune_jobs():
+    """Drop finished jobs older than the TTL so the store can't grow forever."""
+    cutoff = time.time() - _JOB_TTL_SECONDS
+    stale = [
+        job_id
+        for job_id, job in _jobs.items()
+        if job["status"] != "running" and job.get("finished_at", 0) < cutoff
+    ]
+    for job_id in stale:
+        _jobs.pop(job_id, None)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "smartgrid-client-secret")
@@ -183,6 +197,7 @@ def simulate():
         flash("Simulation dates must be between 2007-01-01 and 2007-06-30, and start date must be before end date.", "error")
         return redirect(url_for("index"))
 
+    _prune_jobs()
     job_id = str(uuid.uuid4())
     _jobs[job_id] = {"status": "running", "message": "Simulation in progress…"}
 
@@ -193,9 +208,17 @@ def simulate():
                 start_date=start_date or None,
                 end_date=end_date or None,
             )
-            _jobs[job_id] = {"status": "done", "message": "Simulation completed successfully."}
+            _jobs[job_id] = {
+                "status": "done",
+                "message": "Simulation completed successfully.",
+                "finished_at": time.time(),
+            }
         except Exception as e:
-            _jobs[job_id] = {"status": "error", "message": f"Simulation failed: {e}"}
+            _jobs[job_id] = {
+                "status": "error",
+                "message": f"Simulation failed: {e}",
+                "finished_at": time.time(),
+            }
 
     threading.Thread(target=run, daemon=True).start()
     return redirect(url_for("index", sim_job=job_id))
@@ -206,7 +229,8 @@ def simulate_status(job_id):
     job = _jobs.get(job_id)
     if not job:
         return jsonify({"status": "error", "message": "Job not found."}), 404
-    return jsonify(job)
+    return jsonify({"status": job["status"], "message": job["message"]})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8004)), debug=True)
+    # Debug mode is opt-in via FLASK_DEBUG=1 — never enable it by default.
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8004)), debug=os.getenv("FLASK_DEBUG") == "1")
